@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard1.3</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>ZadarmaAPI</PackageId>
+    <Authors>Zadarma</Authors>
+    <Description>Zadarma API consumer</Description>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DocumentationFile>..\Build\Release\ZadarmaAPI.xml</DocumentationFile>
+  </PropertyGroup>
+
+</Project>

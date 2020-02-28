@@ -17,7 +17,7 @@ namespace ZadarmaAPI
         private const string UrlApi = "https://api.zadarma.com";
         private const string UrlApiSandbox = "https://api-sandbox.zadarma.com";
 
-        private readonly string _baseAddress;
+        private string _baseAddress;
         private readonly HttpClient _httpClient = new HttpClient();
 
         /// <summary>
@@ -28,12 +28,22 @@ namespace ZadarmaAPI
         /// <summary>
         /// Secret from personal
         /// </summary>
-        public string Secret { get; }
+        public string Secret { get; set; }
+
+        private bool _isSandbox;
 
         /// <summary>
         /// Is this client using a sandbox api
         /// </summary>
-        public bool IsSandbox { get; }
+        public bool IsSandbox
+        {
+            get => _isSandbox;
+            set
+            {
+                _isSandbox = value;
+                _baseAddress = _isSandbox ? UrlApiSandbox : UrlApi;
+            }
+        }
 
         /// <summary>
         /// Constructor
@@ -46,8 +56,6 @@ namespace ZadarmaAPI
             Key = key;
             Secret = secret;
             IsSandbox = isSandbox;
-
-            _baseAddress = IsSandbox ? UrlApiSandbox : UrlApi;
         }
 
 
@@ -63,7 +71,6 @@ namespace ZadarmaAPI
         public async Task<HttpResponseMessage> CallAsync(string method, IDictionary<string, string> paramDictionary = null,
             HttpMethod requestType = null, string format = "json", bool isAuth = true)
         {
-
             var request = GenerateRequest(method, paramDictionary, requestType, format, isAuth);
             return await _httpClient.SendAsync(request);
         }
@@ -81,12 +88,12 @@ namespace ZadarmaAPI
             HttpMethod requestType = null, string format = "json", bool isAuth = true)
         {
             var request = GenerateRequest(method, paramDictionary, requestType, format, isAuth);
-            var result = _httpClient.SendAsync(request);
-            return result.Result;
+            var response = _httpClient.SendAsync(request);
+            return response.Result;
         }
 
         /// <summary>
-        /// Generate request string 
+        /// Generate request message 
         /// </summary>
         /// <param name="method">API method (i.e. "/v1/tariff/")</param>
         /// <param name="paramDictionary">Parameter dictionary</param>
@@ -94,7 +101,7 @@ namespace ZadarmaAPI
         /// <param name="format">Response format (xml or json)</param>
         /// <param name="isAuth">Is auth needed (True or False)</param>
         /// <returns>Request message</returns>
-        private HttpRequestMessage GenerateRequest(string method, IDictionary<string, string> paramDictionary = null, HttpMethod requestType = null, string format = "json", bool isAuth = true)
+        public HttpRequestMessage GenerateRequest(string method, IDictionary<string, string> paramDictionary = null, HttpMethod requestType = null, string format = "json", bool isAuth = true)
         {
             if (paramDictionary == null) paramDictionary = new SortedDictionary<string, string>();
             paramDictionary["format"] = format;
@@ -109,18 +116,17 @@ namespace ZadarmaAPI
             else
             {
                 var sortedDictParams = new SortedDictionary<string, string>(paramDictionary);
-                var paramsString = string.Join("&", sortedDictParams.Select(GetUrlEncodedParameter));
+                var paramsString = GetUrlEncodedStringOfParameters(sortedDictParams);
                 urlString = $"{_baseAddress}{method}?{paramsString}";
             }
 
-            HttpRequestMessage request = new HttpRequestMessage(requestType, urlString);
+            var request = new HttpRequestMessage(requestType, urlString);
 
             if (isAuth) request.Headers.TryAddWithoutValidation("Authorization", authStr);
 
             if (requestType == HttpMethod.Get) return request;
 
-            var content = new FormUrlEncodedContent(paramDictionary);
-            request.Content = content;
+            request.Content = new FormUrlEncodedContent(paramDictionary);
 
             return request;
         }
@@ -131,22 +137,21 @@ namespace ZadarmaAPI
         /// <param name="method">API method, including version number</param>
         /// <param name="paramDictionary">Query params dict</param>
         /// <returns>auth header</returns>
-        private string GetAuthStringForHeader(string method, IDictionary<string, string> paramDictionary)
+        public string GetAuthStringForHeader(string method, IDictionary<string, string> paramDictionary)
         {
             var sortedDictParams = new SortedDictionary<string, string>(paramDictionary);
 
-            var paramString = string.Join("&", sortedDictParams.Select(GetUrlEncodedParameter));
+            var paramString = GetUrlEncodedStringOfParameters(sortedDictParams);
 
             var auth = "";
             using (var md5Hash = MD5.Create())
             using (var hmacHash = new HMACSHA1(Encoding.UTF8.GetBytes(Secret)))
             {
-                var md5HashString = string.Join(string.Empty,
-                    md5Hash.ComputeHash(Encoding.UTF8.GetBytes(paramString)).Select(b => b.ToString("x2")));
+                var md5HashString = HexDigestFunc(md5Hash.ComputeHash, paramString);
 
                 var data = $"{method}{paramString}{md5HashString}";
 
-                var hmacHashString = ToHexString(hmacHash.ComputeHash(Encoding.UTF8.GetBytes(data)));
+                var hmacHashString = HexDigestFunc(hmacHash.ComputeHash, data);
 
                 auth = $"{Key}:{Convert.ToBase64String(Encoding.UTF8.GetBytes(hmacHashString))}";
             }
@@ -155,19 +160,21 @@ namespace ZadarmaAPI
         }
 
         /// <summary>
-        /// Generate hex string from bytes array (python's hexdigit analog)
+        /// Uses function on data (bytes) and then transforms result to hex string
         /// </summary>
-        /// <param name="array">Bytes array</param>
-        /// <returns>Hexdigest string</returns>
-        private static string ToHexString(byte[] array)
-        {
-            StringBuilder hex = new StringBuilder(array.Length * 2);
-            foreach (var b in array)
-            {
-                hex.AppendFormat("{0:x2}", b);
-            }
-            return hex.ToString();
-        }
+        /// <param name="function">Function</param>
+        /// <param name="data">Data</param>
+        /// <returns>Hex string</returns>
+        private static string HexDigestFunc(Func<byte[], byte[]> function, string data) => string.Join(string.Empty,
+            function(Encoding.UTF8.GetBytes(data)).Select(b => b.ToString("x2")));
+
+        /// <summary>
+        /// URL encode all key-value parameters of IDictionary
+        /// </summary>
+        /// <param name="parameters">Parameters (dict or another key-value collection)</param>
+        /// <returns>URL encoded string</returns>
+        private static string GetUrlEncodedStringOfParameters(IDictionary<string, string> parameters) =>
+            string.Join("&", parameters.Select(GetUrlEncodedParameter));
 
         /// <summary>
         /// URL encode key-value parameter

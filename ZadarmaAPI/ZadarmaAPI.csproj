@@ -1,12 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard1.3</TargetFramework>
+    <TargetFrameworks>netstandard1.3;netstandard2.0</TargetFrameworks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>ZadarmaAPI</PackageId>
     <Authors>Zadarma</Authors>
-    <Description>Zadarma API consumer</Description>
+    <Description>Zadarma API consumer, allows you to use Zadarma API or build your own consumer/client
+https://zadarma.com/support/api/
+    </Description>
     <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/zadarma/user-api-cs-v1</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/zadarma/user-api-cs-v1</RepositoryUrl>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">

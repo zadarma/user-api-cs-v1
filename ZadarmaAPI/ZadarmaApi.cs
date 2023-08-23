@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -72,6 +73,16 @@ namespace ZadarmaAPI
             HttpMethod requestType = null, string format = "json", bool isAuth = true)
         {
             var request = GenerateRequest(method, paramDictionary, requestType, format, isAuth);
+            return await CallAsync(request);
+        }
+
+        /// <summary>
+        /// Async call to API
+        /// </summary>
+        /// <param name="request">Request message</param>
+        /// <returns></returns>
+        public async Task<HttpResponseMessage> CallAsync(HttpRequestMessage request)
+        {
             return await _httpClient.SendAsync(request);
         }
 
@@ -88,12 +99,22 @@ namespace ZadarmaAPI
             HttpMethod requestType = null, string format = "json", bool isAuth = true)
         {
             var request = GenerateRequest(method, paramDictionary, requestType, format, isAuth);
+            return Call(request);
+        }
+
+        /// <summary>
+        /// Synchronized call to API
+        /// </summary>
+        /// <param name="request">Request message</param>
+        /// <returns></returns>
+        public HttpResponseMessage Call(HttpRequestMessage request)
+        {
             var response = _httpClient.SendAsync(request);
             return response.Result;
         }
 
         /// <summary>
-        /// Generate request message 
+        /// Generate request message with content
         /// </summary>
         /// <param name="method">API method (i.e. "/v1/tariff/")</param>
         /// <param name="paramDictionary">Parameter dictionary</param>
@@ -102,6 +123,59 @@ namespace ZadarmaAPI
         /// <param name="isAuth">Is auth needed (True or False)</param>
         /// <returns>Request message</returns>
         public HttpRequestMessage GenerateRequest(string method, IDictionary<string, string> paramDictionary = null, HttpMethod requestType = null, string format = "json", bool isAuth = true)
+        {
+            var request = GenerateBaseRequest(method, paramDictionary, requestType, format, isAuth);
+
+            request.Content = new FormUrlEncodedContent(paramDictionary);
+
+            return request;
+        }
+
+        /// <summary>
+        /// Generate request message with content type multipart/form-data
+        /// </summary>
+        /// <param name="method">API method (i.e. "/v1/tariff/")</param>
+        /// <param name="paramDictionary">Parameter dictionary</param>
+        /// <param name="multipartContent">Multipart content (byte array)</param>
+        /// <param name="multipartContentType">Multipart content type</param>
+        /// <param name="multipartContentParamName">Multipart content parameter name</param>
+        /// <param name="multipartContentName">Multipart content name (filename)</param>
+        /// <param name="requestType">Type of request (PUT, POST, GET, DELETE)</param>
+        /// <param name="format">Response format (xml or json)</param>
+        /// <param name="isAuth">Is auth needed (True or False)</param>
+        /// <returns>Request message with multipart content</returns>
+        public HttpRequestMessage GenerateMultipartRequest(string method, IDictionary<string, string> paramDictionary, byte[] multipartContent, string multipartContentType, string multipartContentParamName, string multipartContentName = "", HttpMethod requestType = null, string format = "json", bool isAuth = true)
+        {
+            requestType = requestType ?? HttpMethod.Post;
+
+            var request = GenerateBaseRequest(method, paramDictionary, requestType, format);
+
+            var content = new MultipartFormDataContent();
+
+            var byteHttpContent = new ByteArrayContent(multipartContent);
+            byteHttpContent.Headers.ContentType = new MediaTypeHeaderValue(multipartContentType);
+            content.Add(byteHttpContent, multipartContentParamName, multipartContentName);
+
+            foreach (var param in paramDictionary)
+            {
+                content.Add(new StringContent(param.Value), param.Key);
+            }
+
+            request.Content = content;
+
+            return request;
+        }
+
+        /// <summary>
+        /// Generate basic request with no content
+        /// </summary>
+        /// <param name="method">API method (i.e. "/v1/tariff/")</param>
+        /// <param name="paramDictionary">Parameters for auth string calculation</param>
+        /// <param name="requestType">Type of request (PUT, POST, GET, DELETE)</param>
+        /// <param name="format">Response format (xml or json)</param>
+        /// <param name="isAuth">Is auth needed (True or False)</param>
+        /// <returns>Request message with no content set</returns>
+        public HttpRequestMessage GenerateBaseRequest(string method, IDictionary<string, string> paramDictionary = null, HttpMethod requestType = null, string format = "json", bool isAuth = true)
         {
             if (paramDictionary == null) paramDictionary = new SortedDictionary<string, string>();
             paramDictionary["format"] = format;
@@ -125,8 +199,6 @@ namespace ZadarmaAPI
             if (isAuth) request.Headers.TryAddWithoutValidation("Authorization", authStr);
 
             if (requestType == HttpMethod.Get) return request;
-
-            request.Content = new FormUrlEncodedContent(paramDictionary);
 
             return request;
         }

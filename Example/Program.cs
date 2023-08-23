@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using ZadarmaAPI;
 
@@ -49,6 +51,16 @@ namespace Example
             str = response.Content.ReadAsStringAsync().Result;
             Console.WriteLine(str);
 
+            var file = LoadFile("example.wav");
+            var parameters = new SortedDictionary<string, string>()
+            {
+                {"name", "example.wav"},
+            };
+            var req = zadarma.GenerateMultipartRequest("/v1/pbx/ivr/sounds/upload/", parameters, file, "audio/wav", "file", "example.wav", HttpMethod.Post);
+            var response = zadarma.Call(req);
+            str = response.Content.ReadAsStringAsync().Result;
+            Console.WriteLine(str);
+
         }
 
         static async Task AsyncRequest(ZadarmaApi zadarma)
@@ -56,6 +68,12 @@ namespace Example
             var response = await zadarma.CallAsync("/v1/tariff");
             var str = response.Content.ReadAsStringAsync().Result;
             Console.WriteLine(str);
+        }
+
+        static byte[] LoadFile(string fileName)
+        {
+            var bytes = File.ReadAllBytes(fileName);
+            return bytes;
         }
     }
 }

@@ -52,12 +52,12 @@ namespace Example
             Console.WriteLine(str);
 
             var file = LoadFile("example.wav");
-            var parameters = new SortedDictionary<string, string>()
+            parameters = new SortedDictionary<string, string>()
             {
                 {"name", "example.wav"},
             };
             var req = zadarma.GenerateMultipartRequest("/v1/pbx/ivr/sounds/upload/", parameters, file, "audio/wav", "file", "example.wav", HttpMethod.Post);
-            var response = zadarma.Call(req);
+            response = zadarma.Call(req);
             str = response.Content.ReadAsStringAsync().Result;
             Console.WriteLine(str);
 
